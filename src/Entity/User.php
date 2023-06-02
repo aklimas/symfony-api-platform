@@ -2,11 +2,47 @@
 
 namespace App\Entity;
 
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Delete;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Post;
+use ApiPlatform\Metadata\Put;
+
 use App\Repository\UserRepository;
+use App\State\UserPasswordHasher;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Serializer\Annotation\Groups;
 
+#[ApiResource(
+    operations: [
+        new Get(
+            security: "is_granted('ROLE_ADMIN') or object == user",
+            securityMessage: 'Brak dostepu'
+        ),
+        new Post(
+            processor: UserPasswordHasher::class,
+            security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_USERS_SAVE')"
+        ),
+        new Put(
+            processor: UserPasswordHasher::class,
+            security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_USERS_SAVE') or object == user)",
+            normalizationContext: ['groups' => 'public']
+        ),
+        new Put(
+            processor: UserPasswordHasher::class,
+            security: "is_granted('ROLE_ADMIN')",
+            normalizationContext: ['groups' => 'secret']
+        ),
+    ]
+)]
+#[GetCollection(security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_USERS_READ')")]
+#[Post(processor: UserPasswordHasher::class,security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_USERS_SAVE')")]
+#[Put(processor: UserPasswordHasher::class, security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_USERS_SAVE') or object == user")]
+#[Delete(security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_USERS_DELETE')")]
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
@@ -15,15 +51,30 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private ?int $id = null;
 
+    #[Groups(['public'])]
     #[ORM\Column(length: 180, unique: true)]
     private ?string $email = null;
 
+    #[Groups(['public'])]
+    #[ORM\Column(length: 180, nullable: true)]
+    private ?string $firstName = null;
+
+    #[Groups(['public'])]
+    #[ORM\Column(length: 180, nullable: true)]
+    private ?string $lastName = null;
+
+    #[Groups(['public'])]
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $description = null;
+
+    #[Groups(['secret'])]
     #[ORM\Column]
     private array $roles = [];
 
     /**
      * @var string The hashed password
      */
+    #[Groups(['public'])]
     #[ORM\Column]
     private ?string $password = null;
 
@@ -51,7 +102,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     public function getUserIdentifier(): string
     {
-        return (string) $this->email;
+        return (string)$this->email;
     }
 
     /**
@@ -95,5 +146,41 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         // If you store any temporary, sensitive data on the user, clear it here
         // $this->plainPassword = null;
+    }
+
+    public function getFirstName(): ?string
+    {
+        return $this->firstName;
+    }
+
+    public function setFirstName(?string $firstName): self
+    {
+        $this->firstName = $firstName;
+
+        return $this;
+    }
+
+    public function getLastName(): ?string
+    {
+        return $this->lastName;
+    }
+
+    public function setLastName(?string $lastName): self
+    {
+        $this->lastName = $lastName;
+
+        return $this;
+    }
+
+    public function getDescription(): ?string
+    {
+        return $this->description;
+    }
+
+    public function setDescription(?string $description): self
+    {
+        $this->description = $description;
+
+        return $this;
     }
 }
